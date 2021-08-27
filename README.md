@@ -4,7 +4,7 @@ This is the code that combine deepSDF, deepSDF(with gradient constraint), SAL an
 # get start
 1. sampler.py (if circle/sector, run generate_circle.py/generate_pie.py instead)
 2. (if sal/sald) sald_post_process.py
-3. trainer.py (imgs are one tensorboard)
+3. trainer.py (imgs are shown on tensorboard)
 4. (to get result image of high quality)renderer.py
     change img_size and dpi_info(from 100/100 to 1200/1000)
 
