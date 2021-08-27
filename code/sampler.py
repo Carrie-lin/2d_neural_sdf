@@ -22,8 +22,8 @@ SHAPE_COLOR = (255, 255, 255)
 POINT_COLOR = (128, 255, 128)
 
 SEED_NUM=1
-SAMPLE_NUM=4000
-SHAPE_NAME="shape8"
+SAMPLE_NUM=3000
+SHAPE_NAME="shape3"
 plot_here=False
 
 
@@ -160,11 +160,11 @@ class ShapeSampler(object):
         # Do sampling on edges
         direction = (self.shape.v[1] - self.shape.v[0])
         d = np.random.uniform(1e-7, 1, size=(edge_num[0], 1))
-        # boundary_points就是在表面上的点
+
         boundary_points = self.shape.v[0] + d * direction
         normal_direc=np.array([[-direction[1],direction[0]]])
         normal_direc=normal_direc/np.linalg.norm(normal_direc)
-        # 这样一共拼接得到boundary_points个
+
         for i in range(boundary_points.shape[0]-1):
             cur_normal_direc=np.array([[direction[1],-direction[0]]])
             cur_normal_direc=cur_normal_direc/np.linalg.norm(cur_normal_direc)
@@ -173,25 +173,25 @@ class ShapeSampler(object):
         grad_data=boundary_points.copy()
         grad_data=np.concatenate((grad_data,normal_direc),axis=1)
 
-
-        # 可以对boundary上的点记录它的法向信息
         for i in range(1, self.shape.num):
             direction = (self.shape.v[(i + 1) % self.shape.num] - self.shape.v[i])
 
             d = np.random.uniform(1e-7, 1, size=(edge_num[i], 1))
-            # 当前线段上的点
+
             cur_points=self.shape.v[i] + d * direction
             if not (cur_points.shape[0] == 0):
                 boundary_points = np.concatenate((boundary_points, self.shape.v[i] + d * direction), axis=0)
+
+                # get normal information for surface points
                 normal_direc = np.array([[direction[1], -direction[0]]])
                 normal_direc = normal_direc / np.linalg.norm(normal_direc)
 
-                # 这样一共拼接得到boundary_points个
                 for j in range(cur_points.shape[0] - 1):
                     cur_normal_direc = np.array([[direction[1], -direction[0]]])
                     cur_normal_direc = cur_normal_direc / np.linalg.norm(cur_normal_direc)
                     normal_direc = np.concatenate((normal_direc, cur_normal_direc), axis=0)
 
+                # get gradient gt
                 cur_grad_data = cur_points.copy()
 
                 cur_grad_data = np.concatenate((cur_grad_data, normal_direc), axis=1)
@@ -205,16 +205,18 @@ class ShapeSampler(object):
         # Merge uniform and Gaussian points
         sampled_points = np.concatenate((uniform_points, gaussian_points), axis=0)
         self.sampled_data = self.calculate_sdf(sampled_points)
-        #print("shape:",self.sampled_data.shape)
 
-        # 对于sdf，在sdf后面加上-100
+
+        # for data that only optimize sdf, we append -100
+        # data format: x y sdfValue -100
         self.sampled_data = np.concatenate((self.sampled_data,-100*np.ones((self.sampled_data.shape[0],1))),axis=1)
 
-        # 得到x y sdf -1000.0
-        # 得到x y grad_x grad_y
+        # sdf: x y sdf -1000.0
+        # gradient: x y grad_x grad_y
         self.sampled_data = np.concatenate((self.sampled_data, grad_data), axis=0)
 
-        # get visual data
+        # get data for visualizing gradient comparison
+        # this is true gradient for sample points
         # data format:x y gx gy  in visual_data
         for i in range(sampled_points.shape[0]):
             cur_visual_piece=sampled_points[i].tolist()+self.shape.get_gradient(sampled_points[i]).tolist()
@@ -246,8 +248,9 @@ class ShapeSampler(object):
                     a=1
         '''
 
-        # 用于测试的40000个点，40000个点及其对应的grad，存在testAccuracy目录
-        # x y grad
+        # data for testing shape and graidient accuracy
+        # x y grad_x grad_y
+        # x y sdf
         # ============================================================================================================
 
         test_edge_portion = edge_length / total_length
@@ -257,23 +260,22 @@ class ShapeSampler(object):
         # Do sampling on edges
         direction = (self.shape.v[1] - self.shape.v[0])
         d = np.random.uniform(1e-7, 1, size=(edge_num[0], 1))
-        # boundary_points就是在表面上的点
+    
         new_boundary_points = self.shape.v[0] + d * direction
         test_normal_direc = np.array([[-direction[1], direction[0]]])
 
-        # 这样一共拼接得到boundary_points个
         for i in range(new_boundary_points.shape[0] - 1):
             test_normal_direc = np.concatenate((test_normal_direc, np.array([[-direction[1], direction[0]]])), axis=0)
 
         test_grad_data = new_boundary_points.copy()
         test_grad_data = np.concatenate((test_grad_data, test_normal_direc), axis=1)
 
-        # 可以对boundary上的点记录它的法向信息
+        # get all tesing data 
         for i in range(1, self.shape.num):
             direction = (self.shape.v[(i + 1) % self.shape.num] - self.shape.v[i])
             # print(direction)
             d = np.random.uniform(1e-7, 1, size=(edge_num[i], 1))
-            # 当前线段上的点
+       
             cur_points = self.shape.v[i] + d * direction
             if not (cur_points.shape[0] == 0):
                 new_boundary_points = np.concatenate((new_boundary_points, self.shape.v[i] + d * direction), axis=0)
@@ -281,7 +283,7 @@ class ShapeSampler(object):
 
                 for j in range(cur_points.shape[0] - 1):
                     test_normal_direc = np.concatenate((test_normal_direc, np.array([[-direction[1], direction[0]]])), axis=0)
-                # test_grad_data是所有包含了点和法向
+     
                 cur_grad_data = cur_points.copy()
                 cur_grad_data = np.concatenate((cur_grad_data, test_normal_direc), axis=1)
                 test_grad_data = np.concatenate((cur_grad_data, test_grad_data), axis=0)
@@ -289,8 +291,6 @@ class ShapeSampler(object):
 
         # ============================================================================================================
 
-
-        # 分装进test和train两个部分
         # Split sampled data into train dataset and val dataset
         train_size = int(len(self.sampled_data) * self.split_ratio)
 
